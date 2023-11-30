@@ -35,7 +35,7 @@ int main() {
         while (token != NULL) {
             if (currentSensor == -1) { // dann beginne mit dem ersten Token, SensorID...
                 int sensorID = atoi(token);
-                if (sensorID >= 0 && sensorID <= 256) {
+                if (sensorID >= 0 && sensorID <= 255) {
                     currentSensor = sensorID - 1; //..hier
                     sensors[currentSensor].Sensor = sensorID;
                 } else {
