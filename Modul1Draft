@@ -1,0 +1,181 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+
+struct SensorData
+{
+    int Sensor;
+    int Messwert;
+    int WarnLOW;
+    int WarnHIGH;
+    int AlarmLOW;
+    int AlarmHIGH;
+    int *latestLog; 
+};
+
+
+int rechnerMedian(int array[], int rechnerMedianvar)
+{
+    for (int i = 0; i < rechnerMedianvar - 1; i++)
+    {
+        for (int j = 0; j < rechnerMedianvar - i - 1; j++)
+        {
+            if (array[j] > array[j + 1])
+            {
+                int temp = array[j];
+                array[j] = array[j + 1];
+                array[j + 1] = temp;
+            }
+        }
+    }
+    if (rechnerMedianvar % 2 == 0)
+    {
+        return (array[rechnerMedianvar / 2 - 1] + array[rechnerMedianvar / 2]) / 2;
+    }
+    else
+    {
+        return array[rechnerMedianvar / 2];
+    }
+}
+
+
+double rechnerMittelwert(int array[], int arrayGr)
+{
+    if (arrayGr == 0)
+    {
+        return 0;
+    }
+    int mittelwertSum = 0;
+    for (int i = 0; i < arrayGr; ++i)
+    {
+        mittelwertSum += array[i];
+    }
+    return (double)mittelwertSum / arrayGr;
+}
+
+int main()
+{
+    const char delimiters[] = ";";
+    char line[10000]; 
+
+   
+    FILE *file = fopen("processData.txt", "r");
+    if (file == NULL)
+    {
+        perror("Datei konnte nicht gefunden werden");
+        return 1;
+    }
+
+    int maxSensors = 5; 
+    int numSensors = 0;
+
+    
+    struct SensorData *sensors = (struct SensorData *)malloc(maxSensors * sizeof(struct SensorData));
+
+   
+    while (fgets(line, sizeof(line), file) != NULL)
+    {
+        char *token = strtok(line, delimiters);
+        if (token == NULL)
+        {
+            
+            continue;
+        }
+
+        int sensorID = atoi(token);
+
+        
+        if (sensorID < 1 || sensorID > maxSensors)
+        {
+            continue;
+        }
+
+        int currentSensor = sensorID - 1;
+
+        
+        if (numSensors == maxSensors)
+        {
+            maxSensors += 5; 
+            sensors = (struct SensorData *)realloc(sensors, maxSensors * sizeof(struct SensorData));
+
+            if (sensors == NULL)
+            {
+                perror("Fehler bei der Speicherzuweisung");
+                return 1;
+            }
+        }
+
+        
+        sensors[currentSensor].Sensor = sensorID;
+        sensors[currentSensor].Messwert = atoi(strtok(NULL, delimiters));
+        sensors[currentSensor].WarnLOW = atoi(strtok(NULL, delimiters));
+        sensors[currentSensor].WarnHIGH = atoi(strtok(NULL, delimiters));
+        sensors[currentSensor].AlarmLOW = atoi(strtok(NULL, delimiters));
+        sensors[currentSensor].AlarmHIGH = atoi(strtok(NULL, delimiters));
+
+        
+        if (numSensors == currentSensor)
+        {
+            
+            sensors[currentSensor].latestLog = (int *)malloc(3 * sizeof(int));
+            
+            for (int i = 0; i < 3; ++i)
+            {
+                sensors[currentSensor].latestLog[i] = 0;
+            }
+        }
+
+        for (int i = 2; i > 0; --i)
+        {
+            sensors[currentSensor].latestLog[i] = sensors[currentSensor].latestLog[i - 1];
+        }
+        sensors[currentSensor].latestLog[0] = sensors[currentSensor].Messwert;
+
+        
+        if (currentSensor >= numSensors)
+        {
+            numSensors = currentSensor + 1;
+        }
+    }
+
+    
+    fclose(file);
+
+    
+    for (int i = 0; i < numSensors; ++i)
+    {
+        int median = rechnerMedian(sensors[i].latestLog, 3);
+        double average = rechnerMittelwert(sensors[i].latestLog, 3);
+        printf("Sensor %d: SensorID=%d, Latest Messwert=%d, Median=%d, Mittelwert=%f WarnLOW=%d, WarnHIGH=%d, AlarmLOW=%d, AlarmHIGH=%d ",
+               i + 1,
+               sensors[i].Sensor,
+               sensors[i].Messwert,
+               sensors[i].latestLog[0],
+               average,
+               sensors[i].WarnLOW,
+               sensors[i].WarnHIGH,
+               sensors[i].AlarmLOW,
+               sensors[i].AlarmHIGH);
+
+        
+        if (sensors[i].Messwert < sensors[i].WarnLOW || sensors[i].Messwert > sensors[i].WarnHIGH)
+        {
+            printf("Warn Flag ");
+        }
+        if (sensors[i].Messwert < sensors[i].AlarmLOW || sensors[i].Messwert > sensors[i].AlarmHIGH)
+        {
+            printf("Alarm Flag");
+        }
+
+        printf("\n");
+
+        
+        free(sensors[i].latestLog);
+    }
+
+    
+    free(sensors);
+
+    return 0;
+}
